@@ -25,12 +25,17 @@ function(reg_parallel_test_f t_ lib n nthr)
         $<INSTALL_INTERFACE:..>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../..>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../../..>)
-    add_test(
-        NAME ${t}
-        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
-            $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    if("${MPIEXEC_EXECUTABLE}" STREQUAL "")
+      add_test(NAME ${t} COMMAND $<TARGET_FILE:${t}>)
+    else()
+      add_test(
+          NAME ${t}
+          COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${n} ${MPIEXEC_PREFLAGS}
+              $<TARGET_FILE:${t}> ${MPIEXEC_POSTFLAGS})
+    endif()
     set_tests_properties(${t} PROPERTIES
-        ENVIRONMENT OMP_NUM_THREADS=${nthr})
+        ENVIRONMENT OMP_NUM_THREADS=${nthr}
+        LABELS "parallel-ranks-${n}")
 endfunction()
 
 if (OOMPH_WITH_MPI)

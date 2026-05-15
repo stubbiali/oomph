@@ -1,0 +1,42 @@
+name: spack
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-spack:
+    runs-on: ubuntu-latest
+    container: boeschf/ghex-org
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: install-ghex-org-packages
+        run: |
+          mkdir /repos
+          git clone https://github.com/ghex-org/spack-repos.git /repos
+          . /opt/spack/share/spack/setup-env-clean.sh
+          spack repo add /repos
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: oomph
+      # export OpenMPI environment variables: allow to run as root
+      - name: set env
+        run: |
+          echo "OMPI_ALLOW_RUN_AS_ROOT=1" >>  $GITHUB_ENV
+          echo "OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1" >>  $GITHUB_ENV
+      - name: build-and-test
+        run: |
+          cd oomph
+          . /opt/spack/share/spack/setup-env-clean.sh
+          spack spec -I --reuse oomph
+          # dev-build does not respect test dependencies - workaround
+          spack install --reuse googletest
+          spack load googletest
+          # need `--dirty` here for environment variables and googletest test dependency to propagate
+          spack dev-build --test=root --dirty --reuse oomph@develop
+          cat install-time-test-log.txt

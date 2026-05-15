@@ -1,0 +1,6 @@
+spack:
+  specs:
+  - oomph@main backend=mpi +cuda
+  view: false
+  concretizer:
+    unify: true

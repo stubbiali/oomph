@@ -1,15 +1,33 @@
 cmake_minimum_required(VERSION 3.17)
 # CMake version is set at 3.17 because of find_package(CUDAToolkit)
 
+if (NOT ${CMAKE_VERSION} VERSION_LESS 3.27)
+    # new in 3.27: additionally use uppercase <PACKAGENAME>_ROOT
+    # environment and CMake variables for find_package
+    cmake_policy(SET CMP0144 NEW)
+endif()
+
 set(OOMPH_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${OOMPH_MODULE_PATH}")
 
 include(CMakeDependentOption)
 include(oomph_version)
-make_version(OOMPH 0 2 0)
+make_version(OOMPH 0 5 0)
 
 project(oomph VERSION ${OOMPH_VERSION})
 enable_language(CXX)
+
+# ------------------------------------------------------------------------------
+# Policies
+# ------------------------------------------------------------------------------
+function(set_policy POLICY_NAME POLICY_VALUE)
+  if(POLICY ${POLICY_NAME})
+    cmake_policy(SET ${POLICY_NAME} ${POLICY_VALUE})
+  endif()
+endfunction()
+
+set_policy(CMP0074 NEW) # find_package uses XXX_ROOT vars using PackageName
+set_policy(CMP0144 NEW) # find_package allows XXX_ROOT vars using PACKAGENAME Uppercase
 
 # ---------------------------------------------------------------------
 # CMake setup, C++ version, build type, modules, etc
@@ -88,6 +106,8 @@ add_subdirectory(bindings)
 # ---------------------------------------------------------------------
 set(OOMPH_WITH_TESTING OFF CACHE BOOL "True if tests shall be built")
 if (OOMPH_WITH_TESTING)
+    set(CTEST_TEST_TIMEOUT 30)
+    include(CTest)
     enable_testing()
     add_subdirectory(test)
 endif()
@@ -108,11 +128,11 @@ endif()
 install(EXPORT oomph-targets
     FILE oomph-targets.cmake
     NAMESPACE oomph::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/oomph/cmake)
 
 configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/oomphConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/oomphConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/oomph/cmake)
 
 write_basic_package_version_file(oomphConfigVersion.cmake
     VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
@@ -125,7 +145,7 @@ install(
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindUCX.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindPMIx.cmake
     DESTINATION
-        ${CMAKE_INSTALL_LIBDIR}/cmake)
+        ${CMAKE_INSTALL_LIBDIR}/oomph/cmake)
 
 export(EXPORT oomph-targets
     FILE "${CMAKE_CURRENT_BINARY_DIR}/oomph-targets.cmake")

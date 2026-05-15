@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <hwmalloc/heap_config.hpp>
+
 #include <oomph/config.hpp>
 
 // paths relative to backend
@@ -26,7 +28,7 @@ class context_impl : public context_base
     using heap_type = hwmalloc::heap<context_impl>;
 
   private:
-    heap_type    m_heap;
+    heap_type m_heap;
     //rma_context  m_rma_context;
     unsigned int m_n_tag_bits;
 
@@ -34,10 +36,9 @@ class context_impl : public context_base
     shared_request_queue m_req_queue;
 
   public:
-    context_impl(MPI_Comm comm, bool thread_safe, bool message_pool_never_free,
-        std::size_t message_pool_reserve)
+    context_impl(MPI_Comm comm, bool thread_safe, hwmalloc::heap_config const& heap_config)
     : context_base(comm, thread_safe)
-    , m_heap{this, message_pool_never_free, message_pool_reserve}
+    , m_heap{this, heap_config}
     //, m_rma_context{m_mpi_comm}
     {
         // get largest allowed tag value
@@ -82,7 +83,7 @@ class context_impl : public context_base
 
     unsigned int num_tag_bits() const noexcept { return m_n_tag_bits; }
 
-    const char *get_transport_option(const std::string &opt);
+    const char* get_transport_option(const std::string& opt);
 };
 
 template<>
@@ -95,7 +96,7 @@ register_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 #if OOMPH_ENABLE_DEVICE
 template<>
 inline region
-register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+register_device_memory<context_impl>(context_impl& c, int, void* ptr, std::size_t)
 {
     return c.make_region(ptr);
 }

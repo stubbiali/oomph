@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi
     steps:
+      - name: install libfabric
+        run: |
+          apt update
+          apt-get -y install libfabric-dev
       - uses: actions/checkout@v3
         with:
           submodules: recursive
@@ -35,8 +39,9 @@ jobs:
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_LIBFABRIC=OFF \
-            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_WITH_LIBFABRIC=ON \
+            -DOOMPH_LIBFABRIC_PROVIDER=tcp \
+            -DOOMPH_LIBFABRIC_V1_API=ON \
             -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
@@ -49,6 +54,10 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-hip
     steps:
+      - name: install libfabric
+        run: |
+          apt update
+          apt-get -y install libfabric-dev
       - uses: actions/checkout@v3
         with:
           submodules: recursive
@@ -75,8 +84,9 @@ jobs:
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_LIBFABRIC=OFF \
-            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_WITH_LIBFABRIC=ON \
+            -DOOMPH_LIBFABRIC_PROVIDER=tcp \
+            -DOOMPH_LIBFABRIC_V1_API=ON \
             -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..
@@ -87,6 +97,10 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/gridtools/gridtools-base:gcc-9-ucx-mpi-atlas-parmetis-cuda-11
     steps:
+      - name: install libfabric
+        run: |
+          apt update
+          apt-get -y install libfabric-dev
       - uses: actions/checkout@v3
         with:
           submodules: recursive
@@ -113,8 +127,9 @@ jobs:
             -DOOMPH_WITH_UCX=ON \
             -DOOMPH_UCX_USE_SPIN_LOCK=ON \
             -DUCX_DIR=/opt/ucx \
-            -DOOMPH_WITH_LIBFABRIC=OFF \
-            -DOOMPH_LIBFABRIC_PROVIDER=sockets \
+            -DOOMPH_WITH_LIBFABRIC=ON \
+            -DOOMPH_LIBFABRIC_PROVIDER=tcp \
+            -DOOMPH_LIBFABRIC_V1_API=ON \
             -DOOMPH_BUILD_FORTRAN=ON \
             -DMPIEXEC_PREFLAGS=--oversubscribe \
             ..

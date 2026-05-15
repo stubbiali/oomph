@@ -72,18 +72,9 @@ extern char** environ;
 // The output will only be produced every N seconds
 // ------------------------------------------------------------
 
-// Used to wrap function call parameters to prevent evaluation
-// when debugging is disabled
-#define OOMPH_DP_LAZY(printer, Expr) printer.eval([&] { return Expr; })
-#if (__cplusplus >= 201703L)
-#define OOMPH_DP_ONLY(printer, Expr)                                                               \
-    if constexpr (printer.is_enabled()) { printer.Expr; };
-#else
-#define OOMPH_DP_ONLY(printer, Expr)                                                               \
-    if (printer.is_enabled()) { printer.Expr; };
-#endif
-
 #define NS_DEBUG oomph::debug
+#define LF_DEB(printer, Expr)                                                                      \
+    if constexpr (printer.is_enabled()) { printer.Expr; };
 
 // ------------------------------------------------------------
 /// \cond NODETAIL
@@ -286,25 +277,35 @@ crc32(const void* address, size_t length)
 struct mem_crc32
 {
     mem_crc32(const void* a, std::size_t len, const char* txt)
-    : addr_(reinterpret_cast<const uint64_t*>(a))
+    : addr_(reinterpret_cast<const std::uint8_t*>(a))
     , len_(len)
     , txt_(txt)
     {
     }
-    const uint64_t*      addr_;
+    const std::uint8_t*  addr_;
     const std::size_t    len_;
     const char*          txt_;
     friend std::ostream& operator<<(std::ostream& os, mem_crc32 const& p)
     {
-        const uint64_t* uintBuf = static_cast<const uint64_t*>(p.addr_);
+        const std::uint8_t* byte = static_cast<const std::uint8_t*>(p.addr_);
         os << "Memory:";
-        os << " address " << debug::ptr(p.addr_) << " length " << debug::hex<6>(p.len_)
-           << " CRC32:" << debug::hex<8>(crc32(p.addr_, p.len_)) << "\n";
-        for (size_t i = 0; i < (std::min)(size_t(std::ceil(p.len_ / 8.0)), size_t(128)); i++)
+        os << " address " << ptr(p.addr_) << " length " << hex<6, std::size_t>(p.len_)
+           << " CRC32:" << hex<8, std::size_t>(crc32(p.addr_, p.len_)) << "\n";
+        size_t i = 0;
+        while (i < std::min(size_t(128), p.len_))
         {
-            os << debug::hex<16>(*uintBuf++) << " ";
+            os << "0x";
+            for (int j = 7; j >= 0; j--)
+            {
+                os << std::hex << std::setfill('0') << std::setw(2)
+                   << (((i + j) > p.len_) ? (int)0 : (int)byte[i + j]);
+            }
+            i += 8;
+            if (i % 32 == 0) os << std::endl;
+            else
+                os << " ";
         }
-        os << " : " << p.txt_;
+        os << ": " << p.txt_;
         return os;
     }
 };
@@ -721,5 +722,21 @@ struct enable_print<true>
     }
 };
 
-} // namespace oomph::debug
+// ------------------------------------------------------------------
+// helper for N>M true/false
+// ------------------------------------------------------------------
+template<int Level, int Threshold>
+struct check_level : std::integral_constant<bool, Level <= Threshold>
+{
+};
+
+template<int Level, int Threshold>
+struct print_threshold : enable_print<check_level<Level, Threshold>::value>
+{
+    using base_type = enable_print<check_level<Level, Threshold>::value>;
+    // inherit constructor
+    using base_type::base_type;
+};
+
+} // namespace NS_DEBUG
 /// \endcond

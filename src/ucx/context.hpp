@@ -14,6 +14,8 @@
 
 #include <boost/lockfree/queue.hpp>
 
+#include <hwmalloc/heap_config.hpp>
+
 #include <oomph/context.hpp>
 
 // paths relative to backend
@@ -65,23 +67,23 @@ class context_impl : public context_base
     std::size_t                               m_req_size;
     std::unique_ptr<worker_type>              m_worker; // shared, serialized - per rank
     std::vector<std::unique_ptr<worker_type>> m_workers;
+
   public:
-    ucx_mutex                                 m_mutex;
-    recv_req_queue_type                       m_recv_req_queue;
-    recv_req_queue_type                       m_cancel_recv_req_queue;
+    ucx_mutex           m_mutex;
+    recv_req_queue_type m_recv_req_queue;
+    recv_req_queue_type m_cancel_recv_req_queue;
 
     friend struct worker_t;
 
   public: // ctors
-    context_impl(MPI_Comm mpi_c, bool thread_safe, bool message_pool_never_free,
-        std::size_t message_pool_reserve)
+    context_impl(MPI_Comm mpi_c, bool thread_safe, hwmalloc::heap_config const& heap_config)
     : context_base(mpi_c, thread_safe)
 #if defined OOMPH_UCX_USE_PMI
     , m_db(address_db_pmi(context_base::m_mpi_comm))
 #else
     , m_db(address_db_mpi(context_base::m_mpi_comm))
 #endif
-    , m_heap{this, message_pool_never_free, message_pool_reserve}
+    , m_heap{this, heap_config}
     , m_rma_context()
     , m_recv_req_queue(128)
     , m_cancel_recv_req_queue(128)
@@ -236,7 +238,7 @@ class context_impl : public context_base
         return found;
     }
 
-    const char *get_transport_option(const std::string &opt);
+    const char* get_transport_option(const std::string& opt);
 
     unsigned int num_tag_bits() const noexcept { return OOMPH_UCX_TAG_BITS; }
 };
@@ -251,7 +253,7 @@ register_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
 #if OOMPH_ENABLE_DEVICE
 template<>
 inline region
-register_device_memory<context_impl>(context_impl& c, void* ptr, std::size_t)
+register_device_memory<context_impl>(context_impl& c, int, void* ptr, std::size_t)
 {
     return c.make_region(ptr);
 }

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <hwmalloc/config.hpp>
+#include <hwmalloc/heap_config.hpp>
 #include <hwmalloc/device.hpp>
 #include <oomph/config.hpp>
 #include <oomph/message_buffer.hpp>
@@ -42,7 +43,7 @@ class context
 
   public:
     context(MPI_Comm comm, bool thread_safe = true,
-        bool message_pool_never_free = false, std::size_t message_pool_reserve = 1);
+        hwmalloc::heap_config const& = hwmalloc::get_default_heap_config());
 
     context(context const&) = delete;
 
@@ -99,7 +100,7 @@ class context
     }
 #endif
 
-    communicator get_communicator();//unsigned int tag_range = 0);
+    communicator get_communicator(); //unsigned int tag_range = 0);
 
     //unsigned int num_tag_ranges() const noexcept { return m_tag_range_factory.num_ranges(); }
 
@@ -120,7 +121,7 @@ template<typename Context>
 typename Context::region_type register_memory(Context&, void*, std::size_t);
 #if OOMPH_ENABLE_DEVICE
 template<typename Context>
-typename Context::device_region_type register_device_memory(Context&, void*, std::size_t);
+typename Context::device_region_type register_device_memory(Context&, int, void*, std::size_t);
 #endif
 
 } // namespace oomph

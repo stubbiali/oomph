@@ -10,23 +10,14 @@
 #pragma once
 
 #include <rdma/fi_eq.h>
-#include "libfabric_defines.hpp"
-
-#define NS_LIBFABRIC oomph::libfabric
+#include "oomph_libfabric_defines.hpp"
 
 namespace NS_LIBFABRIC
 {
 
 class controller;
 
-enum operation_context_type : int32_t
-{
-    ctx_unknown = 0,
-    ctx_sender = 1,
-    ctx_receiver = 2,
-    ctx_rma = 3,
-    ctx_any = 4,
-};
+static NS_DEBUG::enable_print<false> ctx_bas("CTXBASE");
 
 // This struct holds the ready state of a future
 // we must also store the context used in libfabric, in case
@@ -37,18 +28,14 @@ struct operation_context_base
   private:
     // libfabric requires some space for it's internal bookkeeping
     // so the first member of this struct must be fi_context
-    fi_context             context_reserved_space;
-    operation_context_type type_;
+    fi_context context_reserved_space;
 
   public:
-    operation_context_base(operation_context_type ctype)
+    operation_context_base()
     : context_reserved_space()
-    , type_{ctype}
     {
+        [[maybe_unused]] auto scp = ctx_bas.scope(NS_DEBUG::ptr(this), __func__);
     }
-
-    // type is needed to smiplify the dispatch of errors
-    operation_context_type get_context_type() { return type_; }
 
     // error
     void handle_error(struct fi_cq_err_entry& err)
@@ -72,21 +59,14 @@ struct operation_context_base
     {
         return static_cast<Derived*>(this)->handle_tagged_send_completion_impl(user_data);
     }
-    int handle_tagged_send_completion_impl() { return 0; }
+    int handle_tagged_send_completion_impl(void* /*user_data*/) { return 0; }
 
     // recv
-    int handle_recv_completion(std::uint64_t len, bool threadlocal)
+    int handle_recv_completion(std::uint64_t len)
     {
-        return static_cast<Derived*>(this)->handle_recv_completion_impl(len, threadlocal);
+        return static_cast<Derived*>(this)->handle_recv_completion_impl(len);
     }
-    int handle_recv_completion_impl(std::uint64_t /*len*/, bool /*threadlocal*/) { return 0; }
-
-    // recv + with source adddress (used with FI_SOURCE)
-    int handle_recv_src_completion(fi_addr_t const src_addr, std::uint64_t len)
-    {
-        return static_cast<Derived*>(this)->handle_recv_src_completion_impl(src_addr, len);
-    }
-    int handle_recv_src_completion_impl(fi_addr_t const src_addr, std::uint64_t len) { return 0; }
+    int handle_recv_completion_impl(std::uint64_t /*len*/) { return 0; }
 
     // tagged recv
     int handle_tagged_recv_completion(void* user_data)

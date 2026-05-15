@@ -148,8 +148,8 @@ struct test_environment_device : public test_environment_base
 #else
     , raw_device_smsg(size)
     , raw_device_rmsg(size)
-    , smsg(make_buffer(comm, size, true, raw_device_smsg.get()))
-    , rmsg(make_buffer(comm, size, true, raw_device_rmsg.get()))
+    , smsg(make_buffer(comm, size, user_alloc, raw_device_smsg.get()))
+    , rmsg(make_buffer(comm, size, user_alloc, raw_device_rmsg.get()))
 #endif
     {
         fill_send_buffer();

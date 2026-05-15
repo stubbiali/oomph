@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <hwmalloc/numa.hpp>
+#include <hwmalloc/heap_config.hpp>
 #include <oomph/config.hpp>
 
 // paths relative to backend
@@ -24,9 +25,9 @@ namespace oomph
 {
 
 context::context(MPI_Comm comm, bool thread_safe, //unsigned int num_tag_ranges,
-    bool message_pool_never_free, std::size_t message_pool_reserve)
+    hwmalloc::heap_config const& heap_config)
 : m_mpi_comm{comm}
-, m(m_mpi_comm.get(), thread_safe, message_pool_never_free, message_pool_reserve)
+, m(m_mpi_comm.get(), thread_safe, heap_config)
 , m_schedule{std::make_unique<schedule>()}
 //, m_tag_range_factory(num_tag_ranges, m->num_tag_bits())
 {

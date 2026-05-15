@@ -17,6 +17,11 @@
 #include <limits.h>
 #include <cstring>
 
+
+#ifdef __APPLE__
+#define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+#endif
+
 // test locality by collecting all local ranks
 TEST_F(mpi_test_fixture, locality_enumerate)
 {
