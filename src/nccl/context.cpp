@@ -9,8 +9,8 @@
  */
 
 // paths relative to backend
-#include <context.hpp>
-#include <communicator.hpp>
+#include "context.hpp"
+#include "communicator.hpp"
 
 namespace oomph
 {
@@ -22,13 +22,11 @@ context_impl::get_communicator()
     return comm;
 }
 
-const char *context_impl::get_transport_option(const std::string &opt) const {
-    if (opt == "name") {
-        return "mpi";
-    }
-    else {
-        return "unspecified";
-    }
+const char*
+context_impl::get_transport_option(const std::string& opt) const
+{
+    if (opt == "name") { return "nccl"; }
+    else { return "unspecified"; }
 }
 
 } // namespace oomph

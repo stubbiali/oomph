@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -34,8 +34,13 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
+    bool is_stream_aware() const noexcept { return false; }
+
+    void start_group() {}
+    void end_group() {}
+
     mpi_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
-        tag_type tag)
+        tag_type tag, [[maybe_unused]] void* stream)
     {
         MPI_Request        r;
         const_device_guard dg(ptr);
@@ -44,7 +49,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     }
 
     mpi_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
-        tag_type tag)
+        tag_type tag, [[maybe_unused]] void* stream)
     {
         MPI_Request  r;
         device_guard dg(ptr);
@@ -54,9 +59,9 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::size_t* scheduled)
+        std::size_t* scheduled, void* stream)
     {
-        auto req = send(ptr, size, dst, tag);
+        auto req = send(ptr, size, dst, tag, stream);
         if (!has_reached_recursion_depth() && req.is_ready())
         {
             auto inc = recursion();
@@ -75,9 +80,9 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::size_t* scheduled)
+        std::size_t* scheduled, void* stream)
     {
-        auto req = recv(ptr, size, src, tag);
+        auto req = recv(ptr, size, src, tag, stream);
         if (!has_reached_recursion_depth() && req.is_ready())
         {
             auto inc = recursion();
@@ -96,9 +101,9 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::atomic<std::size_t>* scheduled)
+        std::atomic<std::size_t>* scheduled, void* stream)
     {
-        auto req = recv(ptr, size, src, tag);
+        auto req = recv(ptr, size, src, tag, stream);
         if (!m_context->has_reached_recursion_depth() && req.is_ready())
         {
             auto inc = m_context->recursion();

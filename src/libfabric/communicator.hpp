@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -74,6 +74,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     // --------------------------------------------------------------------
     auto& get_heap() noexcept { return m_context->get_heap(); }
+
+    bool is_stream_aware() const noexcept { return false; }
+
+    void start_group() {}
+    void end_group() {}
 
     // --------------------------------------------------------------------
     /// generate a tag with 0xRRRRRRRRtttttttt rank, tag.
@@ -169,7 +174,7 @@ class communicator_impl : public communicator_base<communicator_impl>
     // --------------------------------------------------------------------
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
-        std::size_t* scheduled)
+        std::size_t* scheduled, [[maybe_unused]] void* stream)
     {
         [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
         std::uint64_t stag = make_tag64(tag, /*this->rank(), */ this->m_context->get_context_tag());
@@ -242,7 +247,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         oomph::tag_type tag, util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
-        std::size_t* scheduled)
+        std::size_t* scheduled, [[maybe_unused]] void* stream)
     {
         [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
         std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());
@@ -295,7 +300,8 @@ class communicator_impl : public communicator_base<communicator_impl>
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, oomph::tag_type tag,
         util::unique_function<void(rank_type, oomph::tag_type)>&& cb,
-        std::atomic<std::size_t>*                                 scheduled)
+        std::atomic<std::size_t>*                                 scheduled,
+        [[maybe_unused]] void* stream)
     {
         [[maybe_unused]] auto scp = com_deb<9>.scope(NS_DEBUG::ptr(this), __func__);
         std::uint64_t         stag = make_tag64(tag, /*src, */ this->m_context->get_context_tag());

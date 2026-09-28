@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -238,7 +238,7 @@ class context_impl : public context_base
         return found;
     }
 
-    const char* get_transport_option(const std::string& opt);
+    const char* get_transport_option(const std::string& opt) const;
 
     unsigned int num_tag_bits() const noexcept { return OOMPH_UCX_TAG_BITS; }
 };

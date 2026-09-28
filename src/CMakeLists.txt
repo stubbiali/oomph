@@ -22,3 +22,7 @@ endif()
 if (OOMPH_WITH_LIBFABRIC)
     add_subdirectory(libfabric)
 endif()
+
+if (OOMPH_WITH_NCCL)
+    add_subdirectory(nccl)
+endif()

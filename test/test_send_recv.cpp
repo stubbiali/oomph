@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -10,6 +10,7 @@
 #include <oomph/context.hpp>
 #include <gtest/gtest.h>
 #include "./mpi_runner/mpi_test_fixture.hpp"
+#include "./nccl_test_helpers.hpp"
 #include <iostream>
 #include <iomanip>
 #include <thread>
@@ -20,9 +21,10 @@
 #define NTHREADS 4
 
 std::vector<std::atomic<int>> shared_received(NTHREADS);
-thread_local int thread_id;
+thread_local int              thread_id;
 
-void reset_counters()
+void
+reset_counters()
 {
     for (auto& x : shared_received) x.store(0);
 }
@@ -192,6 +194,7 @@ launch_test(Func f)
     }
 
     // multi threaded
+    try
     {
         oomph::context           ctxt(MPI_COMM_WORLD, true);
         std::vector<std::thread> threads;
@@ -206,6 +209,10 @@ launch_test(Func f)
             threads.push_back(std::thread{f, std::ref(ctxt), SIZE, i, NTHREADS, true});
         for (auto& t : threads) t.join();
     }
+    catch (std::runtime_error const& e)
+    {
+        oomph::test::handle_nccl_thread_safe_exception(e);
+    }
 }
 
 // no callback
@@ -219,12 +226,11 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
-        while (!(rreq.is_ready() && sreq.is_ready())) 
-        { 
-            env.comm.progress(); 
-        };
+        env.comm.end_group();
+        while (!(rreq.is_ready() && sreq.is_ready())) { env.comm.progress(); };
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
     }
@@ -232,8 +238,10 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     // use test() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
         auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
+        env.comm.end_group();
         while (!(rreq.test() && sreq.test())) {};
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -242,8 +250,11 @@ test_send_recv(oomph::context& ctxt, std::size_t size, int tid, int num_threads,
     // use wait() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rreq = env.comm.recv(env.rmsg, env.rpeer_rank, env.tag);
-        env.comm.send(env.smsg, env.speer_rank, env.tag).wait();
+        auto sreq = env.comm.send(env.smsg, env.speer_rank, env.tag);
+        env.comm.end_group();
+        sreq.wait();
         rreq.wait();
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -279,8 +290,10 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        env.comm.end_group();
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -293,8 +306,10 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     // use test() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        env.comm.end_group();
         while (!rh.test() || !sh.test()) {}
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -307,8 +322,11 @@ test_send_recv_cb(oomph::context& ctxt, std::size_t size, int tid, int num_threa
     // use wait() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.recv(env.rmsg, env.rpeer_rank, 1, recv_callback);
-        env.comm.send(env.smsg, env.speer_rank, 1, send_callback).wait();
+        auto sh = env.comm.send(env.smsg, env.speer_rank, 1, send_callback);
+        env.comm.end_group();
+        sh.wait();
         rh.wait();
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -355,8 +373,10 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        env.comm.end_group();
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -369,8 +389,10 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     // use test() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        env.comm.end_group();
         while (!rh.test() || !sh.test()) {}
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -383,8 +405,11 @@ test_send_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid, int nu
     // use wait() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        env.comm.end_group();
+        sh.wait();
         rh.wait();
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -436,8 +461,10 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     // use is_ready() -> must manually progress the communicator
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        env.comm.end_group();
         while (!rh.is_ready() || !sh.is_ready()) { env.comm.progress(); }
         EXPECT_TRUE(env.rmsg);
         EXPECT_TRUE(env.check_recv_buffer());
@@ -451,8 +478,10 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     // use test() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
         auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        env.comm.end_group();
         while (!rh.test() || !sh.test()) {}
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -465,8 +494,11 @@ test_send_shared_recv_cb_disown(oomph::context& ctxt, std::size_t size, int tid,
     // use wait() -> communicator is progressed automatically
     for (int i = 0; i < NITERS; i++)
     {
+        env.comm.start_group();
         auto rh = env.comm.shared_recv(std::move(env.rmsg), env.rpeer_rank, 1, recv_callback);
-        env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback).wait();
+        auto sh = env.comm.send(std::move(env.smsg), env.speer_rank, 1, send_callback);
+        env.comm.end_group();
+        sh.wait();
         rh.wait();
         EXPECT_TRUE(env.check_recv_buffer());
         env.fill_recv_buffer();
@@ -525,8 +557,10 @@ test_send_recv_cb_resubmit(oomph::context& ctxt, std::size_t size, int tid, int 
         }
     };
 
+    env.comm.start_group();
     env.comm.recv(env.rmsg, env.rpeer_rank, 1, recursive_recv_callback{env, received});
     env.comm.send(env.smsg, env.speer_rank, 1, recursive_send_callback{env, sent});
+    env.comm.end_group();
 
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
@@ -584,8 +618,10 @@ test_send_recv_cb_resubmit_disown(oomph::context& ctxt, std::size_t size, int ti
         }
     };
 
+    env.comm.start_group();
     env.comm.recv(std::move(env.rmsg), env.rpeer_rank, 1, recursive_recv_callback{env, received});
     env.comm.send(std::move(env.smsg), env.speer_rank, 1, recursive_send_callback{env, sent});
+    env.comm.end_group();
 
     while (sent < NITERS || received < NITERS) { env.comm.progress(); };
 }
@@ -596,4 +632,62 @@ TEST_F(mpi_test_fixture, send_recv_cb_resubmit_disown)
 #if HWMALLOC_ENABLE_DEVICE
     launch_test(test_send_recv_cb_resubmit_disown<test_environment_device>);
 #endif
+}
+
+TEST_F(mpi_test_fixture, self_send_recv)
+{
+    using rank_type = test_environment::rank_type;
+
+    oomph::context ctxt(MPI_COMM_WORLD, false);
+    auto           comm = ctxt.get_communicator();
+    auto           buf = comm.make_buffer<rank_type>(64);
+    auto           rbuf = comm.make_buffer<rank_type>(64);
+
+    if (oomph::test::is_nccl_backend(ctxt))
+    {
+        EXPECT_THROW(
+            {
+                try
+                {
+                    comm.send(buf, comm.rank(), 0);
+                }
+                catch (std::runtime_error const& e)
+                {
+                    EXPECT_STREQ(e.what(),
+                        "oomph NCCL backend: self-send/recv requires an active NCCL group. "
+                        "Use start_group()/end_group() around self-send/recv operations.");
+                    throw;
+                }
+            },
+            std::runtime_error);
+
+        EXPECT_THROW(
+            {
+                try
+                {
+                    comm.recv(rbuf, comm.rank(), 0);
+                }
+                catch (std::runtime_error const& e)
+                {
+                    EXPECT_STREQ(e.what(),
+                        "oomph NCCL backend: self-send/recv requires an active NCCL group. "
+                        "Use start_group()/end_group() around self-send/recv operations.");
+                    throw;
+                }
+            },
+            std::runtime_error);
+    }
+
+    for (auto& x : buf) x = comm.rank();
+    for (auto& x : rbuf) x = -1;
+
+    comm.start_group();
+    auto sreq = comm.send(buf, comm.rank(), 0);
+    auto rreq = comm.recv(rbuf, comm.rank(), 0);
+    comm.end_group();
+
+    sreq.wait();
+    rreq.wait();
+
+    for (auto const& x : rbuf) EXPECT_EQ(x, comm.rank());
 }

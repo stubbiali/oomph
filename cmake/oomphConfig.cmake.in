@@ -19,5 +19,8 @@ if (@OOMPH_WITH_LIBFABRIC@)
     #set(LIBFABRIC_INCLUDE_DIR @ULIBFABRIC_INCLUDE_DIRS@)
     find_dependency(Libfabric)
 endif()
+if (@OOMPH_WITH_NCCL@)
+    find_dependency(NCCL)
+endif()
 include(${CMAKE_CURRENT_LIST_DIR}/oomph-targets.cmake)
 

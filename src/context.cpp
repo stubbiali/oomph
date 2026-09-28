@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -68,7 +68,7 @@ context::local_size() const noexcept
 }
 
 const char*
-context::get_transport_option(const std::string& opt)
+context::get_transport_option(const std::string& opt) const
 {
     return m->get_transport_option(opt);
 }

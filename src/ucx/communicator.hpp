@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -70,6 +70,11 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     auto& get_heap() noexcept { return m_context->get_heap(); }
 
+    bool is_stream_aware() const noexcept { return false; }
+
+    void start_group() {}
+    void end_group() {}
+
     void progress()
     {
         while (ucp_worker_progress(m_send_worker->get())) {}
@@ -124,7 +129,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     send_request send(context_impl::heap_type::pointer const& ptr, std::size_t size, rank_type dst,
         tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::size_t* scheduled)
+        std::size_t* scheduled, [[maybe_unused]] void* stream)
     {
         const auto& ep = m_send_worker->connect(dst);
         const auto  stag =
@@ -186,7 +191,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     recv_request recv(context_impl::heap_type::pointer& ptr, std::size_t size, rank_type src,
         tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::size_t* scheduled)
+        std::size_t* scheduled, [[maybe_unused]] void* stream)
     {
         const auto rtag =
             (communicator::any_source == src)
@@ -258,7 +263,7 @@ class communicator_impl : public communicator_base<communicator_impl>
 
     shared_recv_request shared_recv(context_impl::heap_type::pointer& ptr, std::size_t size,
         rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb,
-        std::atomic<std::size_t>* scheduled)
+        std::atomic<std::size_t>* scheduled, [[maybe_unused]] void* stream)
     {
         const auto rtag =
             (communicator::any_source == src)

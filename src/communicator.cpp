@@ -1,7 +1,7 @@
 /*
  * ghex-org
  *
- * Copyright (c) 2014-2023, ETH Zurich
+ * Copyright (c) 2014-2026, ETH Zurich
  * All rights reserved.
  *
  * Please, refer to the LICENSE file in the root directory.
@@ -45,34 +45,58 @@ communicator::mpi_comm() const noexcept
     return m_state->m_impl->mpi_comm();
 }
 
+bool
+communicator::is_stream_aware() const noexcept
+{
+    return m_state->m_impl->is_stream_aware();
+}
+
+const char*
+communicator::get_transport_option(const std::string& opt) const
+{
+    return m_state->m_impl->m_context->get_transport_option(opt);
+}
+
 void
 communicator::progress()
 {
     m_state->m_impl->progress();
 }
 
+void
+communicator::start_group()
+{
+    return m_state->m_impl->start_group();
+}
+
+void
+communicator::end_group()
+{
+    return m_state->m_impl->end_group();
+}
+
 send_request
 communicator::send(detail::message_buffer::heap_ptr_impl const* m_ptr, std::size_t size,
-    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    rank_type dst, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, void* stream)
 {
     return m_state->m_impl->send(m_ptr->m, size, dst, tag, std::move(cb),
-        &(m_state->scheduled_sends));
+        &(m_state->scheduled_sends), stream);
 }
 
 recv_request
 communicator::recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size, rank_type src,
-    tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, void* stream)
 {
     return m_state->m_impl->recv(m_ptr->m, size, src, tag, std::move(cb),
-        &(m_state->scheduled_recvs));
+        &(m_state->scheduled_recvs), stream);
 }
 
 shared_recv_request
 communicator::shared_recv(detail::message_buffer::heap_ptr_impl* m_ptr, std::size_t size,
-    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb)
+    rank_type src, tag_type tag, util::unique_function<void(rank_type, tag_type)>&& cb, void* stream)
 {
     return m_state->m_impl->shared_recv(m_ptr->m, size, src, tag, std::move(cb),
-        m_state->m_shared_scheduled_recvs);
+        m_state->m_shared_scheduled_recvs, stream);
 }
 
 detail::message_buffer

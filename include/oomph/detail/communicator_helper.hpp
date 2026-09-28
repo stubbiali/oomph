@@ -10,92 +10,94 @@
 #pragma once
 
 #include <atomic>
-#include <boost/callable_traits.hpp>
+#include <type_traits>
+#include <vector>
+
+#include <oomph/message_buffer.hpp>
 #include <oomph/request.hpp>
+#include <oomph/types.hpp>
 #include <oomph/util/pool_factory.hpp>
-//#include <oomph/util/tag_range.hpp>
-
-#define OOMPH_CHECK_CALLBACK_F(CALLBACK, RANK_TYPE, TAG_TYPE)                                      \
-    using args_t = boost::callable_traits::args_t<std::remove_reference_t<CALLBACK>>;              \
-    using arg0_t = std::tuple_element_t<0, args_t>;                                                \
-    using arg1_t = std::tuple_element_t<1, args_t>;                                                \
-    using arg2_t = std::tuple_element_t<2, args_t>;                                                \
-    static_assert(std::tuple_size<args_t>::value == 3, "callback must have 3 arguments");          \
-    static_assert(std::is_same<arg1_t, RANK_TYPE>::value,                                          \
-        "rank_type is not convertible to second callback argument type");                          \
-    static_assert(std::is_same<arg2_t, TAG_TYPE>::value,                                           \
-        "tag_type is not convertible to third callback argument type");                            \
-    using TT = typename std::remove_reference_t<arg0_t>::value_type;
-
-#define OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    static_assert(std::is_same<arg0_t, message_buffer<TT>>::value,                                 \
-        "first callback argument type is not a message_buffer");
-
-#define OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    static_assert(std::is_same<arg0_t, message_buffer<TT>&>::value ||                              \
-                      std::is_same<arg0_t, message_buffer<TT> const&>::value,                      \
-        "first callback argument type is not an l-value reference to a message_buffer");
-
-#define OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    static_assert(std::is_same<arg0_t, message_buffer<TT> const&>::value,                          \
-        "first callback argument type is not a const l-value reference to a message_buffer");
-
-#define OOMPH_CHECK_CALLBACK(CALLBACK)                                                             \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
-
-#define OOMPH_CHECK_CALLBACK_MULTI(CALLBACK)                                                       \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
-
-#define OOMPH_CHECK_CALLBACK_MULTI_TAGS(CALLBACK)                                                  \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG                                                                   \
-    }
-
-#define OOMPH_CHECK_CALLBACK_REF(CALLBACK)                                                         \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
-
-#define OOMPH_CHECK_CALLBACK_MULTI_REF(CALLBACK)                                                   \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
-
-#define OOMPH_CHECK_CALLBACK_MULTI_REF_TAGS(CALLBACK)                                              \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG_REF                                                               \
-    }
-
-#define OOMPH_CHECK_CALLBACK_CONST_REF(CALLBACK)                                                   \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, rank_type, tag_type)                                      \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
-
-#define OOMPH_CHECK_CALLBACK_MULTI_CONST_REF(CALLBACK)                                             \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, tag_type)                         \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
-
-#define OOMPH_CHECK_CALLBACK_MULTI_CONST_REF_TAGS(CALLBACK)                                        \
-    {                                                                                              \
-        OOMPH_CHECK_CALLBACK_F(CALLBACK, std::vector<rank_type>, std::vector<tag_type>)            \
-        OOMPH_CHECK_CALLBACK_MSG_CONST_REF                                                         \
-    }
 
 namespace oomph
 {
+namespace detail
+{
+
+template <typename CallBack, typename T>
+using is_callback_for =
+    std::is_invocable<CallBack, oomph::message_buffer<T>, rank_type, tag_type>;
+
+template <typename CallBack, typename T>
+using is_callback_for_ref = std::disjunction<
+    std::is_invocable<CallBack, oomph::message_buffer<T>&, rank_type, tag_type>,
+    std::is_invocable<CallBack, oomph::message_buffer<T> const&, rank_type, tag_type>>;
+
+template <typename CallBack, typename T>
+using is_callback_for_const_ref =
+    std::is_invocable<CallBack, oomph::message_buffer<T> const&, rank_type, tag_type>;
+
+template <typename CallBack, typename T>
+using is_callback_multi_for =
+    std::is_invocable<CallBack, oomph::message_buffer<T>, std::vector<rank_type>, tag_type>;
+
+template <typename CallBack, typename T>
+using is_callback_multi_for_ref = std::disjunction<
+    std::is_invocable<CallBack, oomph::message_buffer<T>&, std::vector<rank_type>, tag_type>,
+    std::is_invocable<CallBack, oomph::message_buffer<T> const&, std::vector<rank_type>, tag_type>>;
+
+template <typename CallBack, typename T>
+using is_callback_multi_for_const_ref =
+    std::is_invocable<CallBack, oomph::message_buffer<T> const&, std::vector<rank_type>, tag_type>;
+
+template <typename CallBack, typename T>
+using is_callback_multi_tags_for =
+    std::is_invocable<CallBack, oomph::message_buffer<T>, std::vector<rank_type>,
+        std::vector<tag_type>>;
+
+template <typename CallBack, typename T>
+using is_callback_multi_tags_for_ref = std::disjunction<
+    std::is_invocable<CallBack, oomph::message_buffer<T>&, std::vector<rank_type>,
+        std::vector<tag_type>>,
+    std::is_invocable<CallBack, oomph::message_buffer<T> const&, std::vector<rank_type>,
+        std::vector<tag_type>>>;
+
+template <typename CallBack, typename T>
+using is_callback_multi_tags_for_const_ref =
+    std::is_invocable<CallBack, oomph::message_buffer<T> const&, std::vector<rank_type>,
+        std::vector<tag_type>>;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_for_v = is_callback_for<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_for_ref_v = is_callback_for_ref<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_for_const_ref_v = is_callback_for_const_ref<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_multi_for_v = is_callback_multi_for<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_multi_for_ref_v = is_callback_multi_for_ref<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_multi_for_const_ref_v =
+    is_callback_multi_for_const_ref<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_multi_tags_for_v = is_callback_multi_tags_for<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_multi_tags_for_ref_v =
+    is_callback_multi_tags_for_ref<CallBack, T>::value;
+
+template <typename CallBack, typename T>
+inline constexpr bool is_callback_multi_tags_for_const_ref_v =
+    is_callback_multi_tags_for_const_ref<CallBack, T>::value;
+
+} // namespace detail
+
 class communicator_impl;
 
 namespace detail
